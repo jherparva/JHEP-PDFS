@@ -72,6 +72,7 @@ export default function Home() {
   const [showImageFormatModal, setShowImageFormatModal] = useState(false);
   const [selectedImageFormat, setSelectedImageFormat] = useState<"png" | "jpeg" | "webp">("png");
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -626,132 +627,178 @@ export default function Home() {
            onInstall={handleInstallClick}
         />
         <section className="flex flex-1 overflow-hidden relative">
-        <aside className="w-full md:w-[250px] lg:w-[300px] h-[300px] md:h-full shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col p-4 md:p-6 md:pb-8 gap-3 md:gap-5 shadow-xl z-30 overflow-hidden">
-           <input type="file" ref={fileInputRef} onChange={async (e) => {
-              const fs = e.target.files; if (!fs) return;
-              for (let i = 0; i < fs.length; i++) { if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { await addFile(fs[i].name, fs[i]); toast.success(`Cargado: ${fs[i].name}`); } }
-              if (fileInputRef.current) fileInputRef.current.value = "";
-           }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
-           <input type="file" ref={directMesaInputRef} onChange={async (e) => {
-              const fs = e.target.files; if (!fs) return;
-              for (let i = 0; i < fs.length; i++) { 
-                if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { 
-                  const id = await addFile(fs[i].name, fs[i]); 
-                  if (id) addPagesToEditor(id);
-                } 
-              }
-              if (directMesaInputRef.current) directMesaInputRef.current.value = "";
-           }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
-           <input type="file" ref={trayFileInputRef} onChange={async (e) => {
-              const fs = e.target.files; if (!fs) return;
-              for (let i = 0; i < fs.length; i++) { 
-                if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { 
-                  toast.promise(addUploadedFileToTray(fs[i].name, fs[i]), {
-                    loading: `Preparando "${fs[i].name}"...`,
-                    success: `"${fs[i].name}" listo en bandeja`,
-                    error: "Error al cargar"
-                  });
-                } 
-              }
-              if (trayFileInputRef.current) trayFileInputRef.current.value = "";
-           }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
-           <div className="flex flex-col gap-3">
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full h-12 flex items-center justify-center gap-2 bg-emerald-600 text-white font-black rounded-2xl shadow-md hover:translate-y-[-2px] hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest border-b-4 border-emerald-900"
-              >
-                <FileUp size={20} strokeWidth={4} />
-                Subir PDF / Imágenes
-              </button>
-              <div className="flex gap-2">
-                 <button
-                   onClick={() => { if(selectedFileIds.length > 0) removeSelectedFiles(); else toast.error("Selecciona PDFs primero"); }}
-                   className="flex-1 py-2.5 text-[9px] bg-white text-slate-500 font-black hover:bg-slate-100 rounded-lg border border-slate-200 uppercase tracking-widest transition-all shadow-sm"
-                 >
-                   Quitar Selección
-                 </button>
-                 <button
-                   onClick={() => { clearAllFiles(); toast.success("Biblioteca Ocultada"); }}
-                   className="flex-1 py-2.5 text-[9px] bg-red-50 text-red-600 font-black hover:bg-red-500 hover:text-white rounded-lg border border-red-200 uppercase tracking-widest transition-all shadow-sm"
-                 >
-                   Limpiar Biblioteca
-                 </button>
-              </div>
-           </div>
-
-           <div className="relative mb-2">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-              <input 
-                type="text" 
-                placeholder="Buscar en biblioteca..." 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
-              />
-           </div>
-
-           <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col gap-1 pr-1 select-none"
-             onMouseLeave={() => setIsDraggingFile(false)}
-             onMouseUp={() => setIsDraggingFile(false)}
-             onMouseDown={(e) => {
-               if (!(e.target as HTMLElement).closest(".file-item")) setIsDraggingFile(true);
-             }}
-           >
-             <AnimatePresence>
-                {files.filter(f => !f.isHidden && f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(f => (
-                   <motion.div key={f.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
-                      draggable={selectedFileIds.includes(f.id) || true}
-                      onDragStart={(e: any) => {
-                        e.dataTransfer.setData("application/pdf-id", f.id);
-                        if (!selectedFileIds.includes(f.id)) selectFile(f.id, false);
-                      }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setIsDraggingFile(true);
-                        if (!selectedFileIds.includes(f.id)) {
-                          selectFile(f.id, e.ctrlKey || e.metaKey);
-                        }
-                      }}
-                     onMouseEnter={() => { if (isDraggingFile) selectFile(f.id, true, true); }}
-                     onMouseUp={() => setIsDraggingFile(false)}
-                     onDoubleClick={() => { addPagesToEditor(f.id); toast.success(`Hojas de "${f.name}" añadidas`); }}
-                     className={cn("file-item group flex items-center p-2 rounded-xl cursor-pointer transition-all border relative",
-                        selectedFileIds.includes(f.id) ? (usedFileIds.includes(f.id) ? "bg-emerald-50 border-emerald-500" : "bg-red-50 border-primary") 
-                        : (usedFileIds.includes(f.id) ? "bg-emerald-50/20 border-emerald-100" : "bg-white border-slate-50 hover:border-slate-200"))}>
-                     <div className={cn("w-7 h-7 rounded-[10px] flex items-center justify-center mr-2 shrink-0", usedFileIds.includes(f.id) ? "bg-emerald-500 text-white" : (selectedFileIds.includes(f.id) ? "bg-primary text-white" : "bg-slate-50 text-slate-300"))}>
-                        {usedFileIds.includes(f.id) ? <CheckCircle2 size={14} strokeWidth={3} /> : <FileSearch size={15} />}
-                     </div>
-                     <div className="flex-1 overflow-hidden pr-5 leading-tight">
-                        <p className={cn("text-[9px] font-black uppercase tracking-tight truncate", usedFileIds.includes(f.id) ? "text-emerald-800" : "text-slate-900")}>{f.name}</p>
-                        <p className="text-[10px] font-black text-primary/90">{f.pageCount} PÁG</p>
-                     </div>
-                     <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="absolute right-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X size={13} strokeWidth={3} /></button>
-                   </motion.div>
-                ))}
-             </AnimatePresence>
-           </div>
-
-           {savedDocuments.length > 0 && (
-             <div className="mt-auto px-1 group/tray">
-               <button 
-                onClick={() => setShowBandejaModal(true)}
-                className="w-full flex items-center justify-between p-4 bg-violet-50 border border-violet-100 rounded-[22px] hover:bg-violet-100 transition-all hover:translate-y-[-2px] shadow-sm hover:shadow-md"
-               >
-                 <div className="flex items-center gap-3">
-                   <div className="relative">
-                     <div className="w-1.5 h-1.5 bg-violet-600 rounded-full absolute -top-0.5 -right-0.5 animate-pulse" />
-                     <Layers size={18} className="text-violet-600" strokeWidth={3} />
+          
+          {/* =========================================================================
+               BIBLIOTECA MOVIL (DRAWER)
+             ========================================================================= */}
+          <AnimatePresence>
+            {mobileSidebarOpen && (
+              <>
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileSidebarOpen(false)} className="fixed inset-0 bg-slate-950/40 backdrop-blur-sm z-[100] md:hidden" />
+                <motion.div initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed inset-y-0 left-0 w-[280px] bg-white z-[110] md:hidden shadow-2xl flex flex-col p-4 gap-3 overflow-hidden">
+                   <div className="flex items-center justify-between mb-2">
+                     <span className="text-[10px] font-black text-slate-900 uppercase tracking-[0.3em]">Biblioteca JHEP</span>
+                     <button onClick={() => setMobileSidebarOpen(false)} className="w-8 h-8 flex items-center justify-center bg-slate-50 text-slate-400 rounded-lg"><X size={18} strokeWidth={3} /></button>
                    </div>
-                   <div className="flex flex-col items-start leading-none">
-                     <span className="text-[9px] font-black text-violet-900 uppercase tracking-wider">Documentos Listos</span>
-                     <span className="text-[11px] font-black text-violet-600 uppercase mt-0.5">Bandeja Virtual ({savedDocuments.length})</span>
+                   <div className="flex flex-col gap-2">
+                      <button onClick={() => fileInputRef.current?.click()} className="w-full h-10 flex items-center justify-center gap-2 bg-emerald-600 text-white font-black rounded-xl shadow-md text-[9px] uppercase tracking-widest border-b-2 border-emerald-900"><FileUp size={16} strokeWidth={3} /> Subir PDF</button>
+                      <div className="flex gap-2">
+                         <button onClick={() => { if(selectedFileIds.length > 0) removeSelectedFiles(); else toast.error("Selecciona"); }} className="flex-1 py-2 text-[8px] bg-white text-slate-500 font-black rounded-lg border border-slate-200 uppercase tracking-widest">Quitar</button>
+                         <button onClick={() => { clearAllFiles(); toast.success("Borrado"); }} className="flex-1 py-2 text-[8px] bg-red-50 text-red-600 font-black rounded-lg border border-red-200 uppercase tracking-widest">Limpiar</button>
+                      </div>
                    </div>
-                 </div>
-                 <Maximize2 size={12} className="text-violet-400 group-hover/tray:text-violet-600 transition-colors" />
-               </button>
+                   <div className="relative mb-2">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
+                      <input type="text" placeholder="Buscar..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full h-9 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-lg text-[10px] uppercase font-black tracking-widest outline-none" />
+                   </div>
+                   <div className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar flex flex-col gap-1 pr-1">
+                      {files.filter(f => !f.isHidden && f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(f => (
+                         <div key={f.id} onClick={() => { selectFile(f.id, true); }} onDoubleClick={() => { addPagesToEditor(f.id); setMobileSidebarOpen(false); }} className={cn("flex items-center p-2 rounded-lg border transition-all", selectedFileIds.includes(f.id) ? "bg-red-50 border-primary" : "bg-white border-slate-50")}>
+                            <div className={cn("w-6 h-6 rounded-lg flex items-center justify-center mr-2 shrink-0", selectedFileIds.includes(f.id) ? "bg-primary text-white" : "bg-slate-50 text-slate-300")}><FileSearch size={12} /></div>
+                            <div className="flex-1 overflow-hidden pr-2"><p className="text-[8px] font-black uppercase truncate text-slate-900">{f.name}</p><p className="text-[8px] font-black text-primary/70">{f.pageCount} PÁG</p></div>
+                         </div>
+                      ))}
+                   </div>
+                   {savedDocuments.length > 0 && (
+                     <button onClick={() => { setShowBandejaModal(true); setMobileSidebarOpen(false); }} className="mt-auto w-full flex items-center justify-between p-3 bg-violet-50 border border-violet-100 rounded-xl">
+                       <div className="flex items-center gap-2"><Layers size={14} className="text-violet-600" /><span className="text-[8px] font-black text-violet-900 uppercase">Bandeja ({savedDocuments.length})</span></div>
+                       <Maximize2 size={10} className="text-violet-400" />
+                     </button>
+                   )}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          {/* =========================================================================
+               BIBLIOTECA DESKTOP (ORIGINAL VERCEL - NO TOCAR)
+             ========================================================================= */}
+          <aside className="hidden md:flex w-full md:w-[250px] lg:w-[300px] h-[300px] md:h-full shrink-0 bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col p-4 md:p-6 md:pb-8 gap-3 md:gap-5 shadow-xl z-30 overflow-hidden">
+             <input type="file" ref={fileInputRef} onChange={async (e) => {
+                const fs = e.target.files; if (!fs) return;
+                for (let i = 0; i < fs.length; i++) { if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { await addFile(fs[i].name, fs[i]); toast.success(`Cargado: ${fs[i].name}`); } }
+                if (fileInputRef.current) fileInputRef.current.value = "";
+             }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
+             <input type="file" ref={directMesaInputRef} onChange={async (e) => {
+                const fs = e.target.files; if (!fs) return;
+                for (let i = 0; i < fs.length; i++) { 
+                  if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { 
+                    const id = await addFile(fs[i].name, fs[i]); 
+                    if (id) addPagesToEditor(id);
+                  } 
+                }
+                if (directMesaInputRef.current) directMesaInputRef.current.value = "";
+             }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
+             <input type="file" ref={trayFileInputRef} onChange={async (e) => {
+                const fs = e.target.files; if (!fs) return;
+                for (let i = 0; i < fs.length; i++) { 
+                  if (fs[i].type.startsWith("application/pdf") || fs[i].type.startsWith("image/")) { 
+                    toast.promise(addUploadedFileToTray(fs[i].name, fs[i]), {
+                      loading: `Preparando "${fs[i].name}"...`,
+                      success: `"${fs[i].name}" listo en bandeja`,
+                      error: "Error al cargar"
+                    });
+                  } 
+                }
+                if (trayFileInputRef.current) trayFileInputRef.current.value = "";
+             }} accept=".pdf,image/png,image/jpeg,image/jpg" multiple className="hidden" />
+             <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-12 flex items-center justify-center gap-2 bg-emerald-600 text-white font-black rounded-2xl shadow-md hover:translate-y-[-2px] hover:shadow-lg active:scale-95 transition-all text-[10px] uppercase tracking-widest border-b-4 border-emerald-900"
+                >
+                  <FileUp size={20} strokeWidth={4} />
+                  Subir PDF / Imágenes
+                </button>
+                <div className="flex gap-2">
+                   <button
+                     onClick={() => { if(selectedFileIds.length > 0) removeSelectedFiles(); else toast.error("Selecciona PDFs primero"); }}
+                     className="flex-1 py-2.5 text-[9px] bg-white text-slate-500 font-black hover:bg-slate-100 rounded-lg border border-slate-200 uppercase tracking-widest transition-all shadow-sm"
+                   >
+                     Quitar Selección
+                   </button>
+                   <button
+                     onClick={() => { clearAllFiles(); toast.success("Biblioteca Ocultada"); }}
+                     className="flex-1 py-2.5 text-[9px] bg-red-50 text-red-600 font-black hover:bg-red-500 hover:text-white rounded-lg border border-red-200 uppercase tracking-widest transition-all shadow-sm"
+                   >
+                     Limpiar Biblioteca
+                   </button>
+                </div>
              </div>
-           )}
-        </aside>
+
+             <div className="relative mb-2">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                  type="text" 
+                  placeholder="Buscar en biblioteca..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full h-10 pl-10 pr-4 bg-slate-50 border border-slate-200 rounded-xl text-[10px] font-black uppercase tracking-widest focus:outline-none focus:ring-2 focus:ring-primary/20 focus:bg-white transition-all"
+                />
+             </div>
+
+             <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar flex flex-col gap-1 pr-1 select-none"
+               onMouseLeave={() => setIsDraggingFile(false)}
+               onMouseUp={() => setIsDraggingFile(false)}
+               onMouseDown={(e) => {
+                 if (!(e.target as HTMLElement).closest(".file-item")) setIsDraggingFile(true);
+               }}
+             >
+               <AnimatePresence>
+                  {files.filter(f => !f.isHidden && f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(f => (
+                     <motion.div key={f.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.8 }}
+                        draggable={selectedFileIds.includes(f.id) || true}
+                        onDragStart={(e: any) => {
+                          e.dataTransfer.setData("application/pdf-id", f.id);
+                          if (!selectedFileIds.includes(f.id)) selectFile(f.id, false);
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setIsDraggingFile(true);
+                          if (!selectedFileIds.includes(f.id)) {
+                            selectFile(f.id, e.ctrlKey || e.metaKey);
+                          }
+                        }}
+                       onMouseEnter={() => { if (isDraggingFile) selectFile(f.id, true, true); }}
+                       onMouseUp={() => setIsDraggingFile(false)}
+                       onDoubleClick={() => { addPagesToEditor(f.id); toast.success(`Hojas de "${f.name}" añadidas`); }}
+                       className={cn("file-item group flex items-center p-2 rounded-xl cursor-pointer transition-all border relative",
+                          selectedFileIds.includes(f.id) ? (usedFileIds.includes(f.id) ? "bg-emerald-50 border-emerald-500" : "bg-red-50 border-primary") 
+                          : (usedFileIds.includes(f.id) ? "bg-emerald-50/20 border-emerald-100" : "bg-white border-slate-50 hover:border-slate-200"))}>
+                       <div className={cn("w-7 h-7 rounded-[10px] flex items-center justify-center mr-2 shrink-0", usedFileIds.includes(f.id) ? "bg-emerald-500 text-white" : (selectedFileIds.includes(f.id) ? "bg-primary text-white" : "bg-slate-50 text-slate-300"))}>
+                          {usedFileIds.includes(f.id) ? <CheckCircle2 size={14} strokeWidth={3} /> : <FileSearch size={15} />}
+                       </div>
+                       <div className="flex-1 overflow-hidden pr-5 leading-tight">
+                          <p className={cn("text-[9px] font-black uppercase tracking-tight truncate", usedFileIds.includes(f.id) ? "text-emerald-800" : "text-slate-900")}>{f.name}</p>
+                          <p className="text-[10px] font-black text-primary/90">{f.pageCount} PÁG</p>
+                       </div>
+                       <button onClick={(e) => { e.stopPropagation(); removeFile(f.id); }} className="absolute right-2 opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all"><X size={13} strokeWidth={3} /></button>
+                     </motion.div>
+                  ))}
+               </AnimatePresence>
+             </div>
+
+             {savedDocuments.length > 0 && (
+               <div className="mt-auto px-1 group/tray">
+                 <button 
+                  onClick={() => setShowBandejaModal(true)}
+                  className="w-full flex items-center justify-between p-4 bg-violet-50 border border-violet-100 rounded-[22px] hover:bg-violet-100 transition-all hover:translate-y-[-2px] shadow-sm hover:shadow-md"
+                 >
+                   <div className="flex items-center gap-3">
+                     <div className="relative">
+                       <div className="w-1.5 h-1.5 bg-violet-600 rounded-full absolute -top-0.5 -right-0.5 animate-pulse" />
+                       <Layers size={18} className="text-violet-600" strokeWidth={3} />
+                     </div>
+                     <div className="flex flex-col items-start leading-none">
+                       <span className="text-[9px] font-black text-violet-900 uppercase tracking-wider">Documentos Listos</span>
+                       <span className="text-[11px] font-black text-violet-600 uppercase mt-0.5">Bandeja Virtual ({savedDocuments.length})</span>
+                     </div>
+                   </div>
+                   <Maximize2 size={12} className="text-violet-400 group-hover/tray:text-violet-600 transition-colors" />
+                 </button>
+               </div>
+             )}
+          </aside>
 
         <section 
           className="flex-1 bg-slate-50 flex flex-col p-3.5 overflow-hidden"
@@ -770,37 +817,94 @@ export default function Home() {
            }}
         >
           <div className="flex flex-col flex-1 bg-white rounded-[32px] border border-slate-200 shadow-lg overflow-hidden relative">
-             <div className="min-h-20 border-b border-slate-50 flex items-center justify-between px-4 md:px-8 py-4 bg-white/90 z-40">
-                <div className="flex items-center gap-4">
-                   <div className="bg-slate-950 p-3 rounded-[18px] text-white shadow-md"><LayoutGrid size={24} strokeWidth={4} /></div>
-                   <div className="flex flex-col">
-                      <span className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-none">Mesa de Trabajo</span>
-                      <span className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">Professional Suite</span>
-                   </div>
-                   
-                   {/* Columnas y Limpiar Selección inmediatamente después del título */}
-                   <div className="flex items-center gap-2 ml-4">
-                      <div className="flex items-center bg-slate-100 p-1 rounded-[18px] border border-slate-50 shrink-0">
-                         {[4, 5, 6, 7].map(n => (
-                           <button key={n} onClick={() => setGridColumns(n)} className={cn("px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all", gridColumns === n ? "bg-white text-slate-900 shadow-md scale-105" : "text-slate-400 hover:text-slate-600 font-bold")}>{n} COL</button>
-                         ))}
-                      </div>
-                      <button onClick={clearSelection} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white transition-all uppercase tracking-widest">Limpiar Selección</button>
-                   </div>
-                </div>
+             <div className="min-h-16 md:min-h-20 border-b border-slate-50 flex items-center justify-between px-3 md:px-8 py-2 md:py-4 bg-white/90 z-40 gap-2">
+                 
+                 {/* HEADER DESKTOP (ORIGINAL) */}
+                 <div className="hidden md:flex items-center gap-4 flex-1">
+                    <div className="bg-slate-950 p-3 rounded-[18px] text-white shadow-md"><LayoutGrid size={24} strokeWidth={4} /></div>
+                    <div className="flex flex-col">
+                       <span className="text-lg font-black text-slate-900 uppercase tracking-tighter leading-none">Mesa de Trabajo</span>
+                       <span className="text-[8px] font-black text-primary uppercase tracking-widest mt-1">Professional Suite</span>
+                    </div>
+                    
+                    {/* Columnas y Limpiar Selección inmediatamente después del título */}
+                    <div className="flex items-center gap-2 ml-4">
+                       <div className="flex items-center bg-slate-100 p-1 rounded-[18px] border border-slate-50 shrink-0">
+                          {[4, 5, 6, 7].map(n => (
+                            <button key={n} onClick={() => setGridColumns(n)} className={cn("px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all", gridColumns === n ? "bg-white text-slate-900 shadow-md scale-105" : "text-slate-400 hover:text-slate-600 font-bold")}>{n} COL</button>
+                          ))}
+                       </div>
+                       <button onClick={clearSelection} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white transition-all uppercase tracking-widest">Limpiar Selección</button>
+                    </div>
 
-                <div className="flex items-center gap-3">
-                   <button onClick={() => setShowBandejaModal(true)} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2 shadow-sm">
-                     <Layers size={14} /> Ver Bandeja ({savedDocuments.length})
-                   </button>
-                   <button 
-                     onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setSaveDocName(""); setShowSaveDoc(true); }} 
-                     className="h-12 px-6 rounded-[18px] text-[9px] font-black bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all uppercase tracking-widest flex items-center gap-2"
-                   >
-                     <Archive size={16} /> Añadir a Bandeja
-                   </button>
+                    <div className="flex-1" />
+
+                    <div className="flex items-center gap-3">
+                       <button onClick={() => setShowBandejaModal(true)} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                         <Layers size={14} /> Ver Bandeja ({savedDocuments.length})
+                       </button>
+                       <button 
+                         onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setSaveDocName(""); setShowSaveDoc(true); }} 
+                         className="h-12 px-6 rounded-[18px] text-[9px] font-black bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all uppercase tracking-widest flex items-center gap-2"
+                       >
+                         <Archive size={16} /> Añadir a Bandeja
+                       </button>
+                       
+                       <div className="w-px h-8 bg-slate-100 mx-2" />
+                       
+                       <div className="flex items-center gap-3 bg-white px-5 h-12 rounded-[18px] shadow-sm border border-slate-200 group/stats">
+                          <div className="w-8 h-8 bg-slate-900 rounded-[10px] flex items-center justify-center text-white text-[11px] font-black shadow-lg">
+                             {virtualPages.length}
+                          </div>
+                          <div className="flex flex-col">
+                             <span className="text-[10px] font-black text-slate-900 uppercase tracking-tighter leading-none text-left">Hojas</span>
+                          </div>
+                       </div>
+                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-sm" />
+                    </div>
+                 </div>
+
+                 {/* HEADER MOBILE (NUEVO) */}
+                 <div className="flex md:hidden items-center gap-2 flex-1 min-w-0">
+                    <button onClick={() => setMobileSidebarOpen(true)} className="w-9 h-9 flex items-center justify-center bg-slate-50 text-slate-600 rounded-lg shrink-0"><FolderOpen size={18} /></button>
+                    <div className="bg-slate-950 p-1.5 rounded-lg text-white shadow-sm shrink-0"><LayoutGrid size={16} strokeWidth={4} /></div>
+                    <div className="flex flex-col min-w-0">
+                       <span className="text-[10px] font-black text-slate-900 uppercase tracking-tighter leading-none truncate">Mesa</span>
+                       <span className="text-[6px] font-black text-primary uppercase mt-0.5">Suite</span>
+                    </div>
+                    <div className="flex items-center gap-1 ml-1 overflow-x-auto no-scrollbar py-0.5">
+                       {[4, 5, 6].map(n => (
+                         <button key={n} onClick={() => setGridColumns(n)} className={cn("px-2 py-1 rounded-md text-[7px] font-black shrink-0", gridColumns === n ? "bg-slate-900 text-white" : "text-slate-400")}>{n} C</button>
+                       ))}
+                       <button onClick={clearSelection} className="px-2 py-1 rounded-md bg-amber-50 text-amber-600 text-[7px] font-black whitespace-nowrap">LIB.</button>
+                    </div>
+                 </div>
+
+                 <div className="flex items-center gap-1.5 md:gap-3 shrink-0">
+                    {/* Botones Desktop */}
+                    <div className="hidden md:flex items-center gap-3">
+                       <button onClick={() => setShowBandejaModal(true)} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2 shadow-sm">
+                         <Layers size={14} /> Ver Bandeja ({savedDocuments.length})
+                       </button>
+                       <button 
+                         onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setSaveDocName(""); setShowSaveDoc(true); }} 
+                         className="h-12 px-6 rounded-[18px] text-[9px] font-black bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all uppercase tracking-widest flex items-center gap-2"
+                       >
+                         <Archive size={16} /> Añadir a Bandeja
+                       </button>
+                    </div>
+
+                    {/* Botones Mobile */}
+                    <div className="flex md:hidden items-center gap-1.5">
+                       <button onClick={() => setShowBandejaModal(true)} className="h-9 px-2.5 rounded-lg text-[7px] font-black bg-white text-slate-900 border border-slate-200 flex items-center gap-1 shadow-sm">
+                         <Layers size={12} /> ({savedDocuments.length})
+                       </button>
+                       <button onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Hojas?"); return; } setSaveDocName(""); setShowSaveDoc(true); }} className="h-9 px-2.5 rounded-lg text-[7px] font-black bg-violet-600 text-white flex items-center gap-1 shadow-sm">
+                         <Archive size={12} />+
+                       </button>
+                    </div>
                    
-                   <div className="w-px h-8 bg-slate-100 mx-2" />
+                   <div className="w-px h-8 bg-slate-100 mx-2 hidden md:block" />
                    
                    {/* Marcador de Hojas restaurado a la derecha */}
                    <div className="flex items-center gap-3 bg-white px-5 h-12 rounded-[18px] shadow-sm border border-slate-200 group/stats">
@@ -919,37 +1023,43 @@ export default function Home() {
         {showBandejaModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10">
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[40px] w-full max-w-6xl h-full max-h-[90vh] shadow-4xl flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
-              <div className="p-8 border-b border-slate-100 flex items-center justify-between bg-white/50 backdrop-blur-md">
-                <div className="flex items-center gap-5">
-                  <div className="w-14 h-14 bg-violet-600 rounded-[22px] flex items-center justify-center text-white shadow-xl shadow-violet-200"><Layers size={28} strokeWidth={3} /></div>
+              <div className="p-4 md:p-8 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between bg-white/50 backdrop-blur-md gap-4">
+                <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto">
+                  <div className="w-10 h-10 md:w-14 md:h-14 bg-violet-600 rounded-lg md:rounded-[22px] flex items-center justify-center text-white shadow-xl shadow-violet-200"><Layers className="w-6 h-6 md:w-7 md:h-7" strokeWidth={3} /></div>
                   <div className="flex flex-col">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tighter leading-tight uppercase">Bandeja Virtual</h2>
-                    <p className="text-[10px] font-black text-violet-500 uppercase tracking-[0.4em] mt-1">Gestión de Documentos Generados</p>
+                    <h2 className="text-lg md:text-3xl font-black text-slate-900 tracking-tighter leading-tight uppercase">Bandeja Virtual</h2>
+                    <p className="text-[7px] md:text-[10px] font-black text-violet-500 uppercase tracking-[0.4em] mt-0.5 md:mt-1">Gestión de Documentos</p>
                   </div>
+                  <div className="flex-1" />
+                  <button onClick={() => setShowBandejaModal(false)} className="md:hidden w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 rounded-lg border border-slate-100"><X size={20} strokeWidth={3} /></button>
                 </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={() => { const allIds = savedDocuments.map(d => d.id); allIds.forEach(id => { if(!selectedDocIds.includes(id)) toggleDocSelection(id); }); }} className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-900 transition-colors">Marcar Todos</button>
-                  <button onClick={clearDocSelection} className="px-5 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700 transition-colors">Desmarcar</button>
-                  <button onClick={() => trayFileInputRef.current?.click()} className="h-14 px-7 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-emerald-600 text-white shadow-xl hover:bg-emerald-700 transition-all">
-                    <FileUp size={18} strokeWidth={3} /> Subir PDF
-                  </button>
-                  <button onClick={handleSaveDocsIndividually} disabled={selectedDocIds.length === 0} className={cn("h-14 px-7 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl", selectedDocIds.length > 0 ? "bg-amber-600 text-white shadow-amber-200 hover:bg-amber-700" : "bg-slate-100 text-slate-400 grayscale cursor-not-allowed shadow-none")}>
-                    <FolderPlus size={18} strokeWidth={3} /> Guardar ({selectedDocIds.length})
-                  </button>
-                  <button onClick={handleExportZip} disabled={selectedDocIds.length === 0} className={cn("h-14 px-7 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl border-2", selectedDocIds.length > 0 ? "bg-white text-emerald-600 border-emerald-600 shadow-emerald-50 hover:bg-emerald-50" : "bg-slate-50 text-slate-300 grayscale cursor-not-allowed border-slate-100 shadow-none")}>
-                    <Download size={18} strokeWidth={3} /> ZIP ({selectedDocIds.length})
-                  </button>
-                  <div className="w-px h-10 bg-slate-100 mx-1" />
-                  <button 
-                    onClick={() => { if(confirm("¿Estás seguro de vaciar toda la bandeja?")) { clearSavedDocuments(); toast.success("Bandeja vaciada"); } }} 
-                    disabled={savedDocuments.length === 0}
-                    className="h-14 px-6 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed border border-red-100"
-                  >
-                    <Trash2 size={18} strokeWidth={3} /> Vaciar
-                  </button>
-                  <button onClick={() => setShowBandejaModal(false)} className="w-14 h-14 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-[22px] transition-all border border-slate-100">
-                    <X size={24} strokeWidth={3} />
-                  </button>
+
+                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto overflow-x-auto no-scrollbar pb-1">
+                  {/* Botones Desktop / Mobile Condicionales dentro de la misma linea o duplicados */}
+                  <button onClick={() => { const allIds = savedDocuments.map(d => d.id); allIds.forEach(id => { if(!selectedDocIds.includes(id)) toggleDocSelection(id); }); }} className="whitespace-nowrap px-3 md:px-5 py-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-900">Marcar Todos</button>
+                  <button onClick={clearDocSelection} className="whitespace-nowrap px-3 md:px-5 py-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700">Desmarcar</button>
+                  
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => trayFileInputRef.current?.click()} className="whitespace-nowrap h-10 md:h-14 px-4 md:px-7 rounded-lg md:rounded-[22px] text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-emerald-600 text-white shadow-xl">
+                      <FileUp className="w-4 h-4 md:w-[18px] md:h-[18px]" strokeWidth={3} /> <span className="hidden sm:inline">Subir PDF</span><span className="sm:hidden">PDF</span>
+                    </button>
+                    <button onClick={handleSaveDocsIndividually} disabled={selectedDocIds.length === 0} className={cn("whitespace-nowrap h-10 md:h-14 px-4 md:px-7 rounded-lg md:rounded-[22px] text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl", selectedDocIds.length > 0 ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-400 grayscale")}>
+                      <FolderPlus className="w-4 h-4 md:w-[18px] md:h-[18px]" strokeWidth={3} /> <span className="hidden sm:inline">Guardar ({selectedDocIds.length})</span><span className="sm:hidden">({selectedDocIds.length})</span>
+                    </button>
+                  </div>
+
+                  <div className="hidden md:flex items-center gap-3">
+                    <button onClick={handleExportZip} disabled={selectedDocIds.length === 0} className={cn("h-14 px-7 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl border-2", selectedDocIds.length > 0 ? "bg-white text-emerald-600 border-emerald-600 shadow-emerald-50 hover:bg-emerald-50" : "bg-slate-50 text-slate-300 grayscale cursor-not-allowed border-slate-100 shadow-none")}>
+                      <Download size={18} strokeWidth={3} /> ZIP ({selectedDocIds.length})
+                    </button>
+                    <div className="w-px h-10 bg-slate-100 mx-1" />
+                    <button onClick={() => { if(confirm("¿Estás seguro de vaciar toda la bandeja?")) { clearSavedDocuments(); toast.success("Bandeja vaciada"); } }} disabled={savedDocuments.length === 0} className="h-14 px-6 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed border border-red-100">
+                      <Trash2 size={18} strokeWidth={3} /> Vaciar
+                    </button>
+                    <button onClick={() => setShowBandejaModal(false)} className="w-14 h-14 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-[22px] transition-all border border-slate-100">
+                      <X size={24} strokeWidth={3} />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-10 custom-scrollbar bg-slate-50/30">
