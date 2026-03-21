@@ -1,0 +1,44 @@
+{
+  "name": "JHEP Editor Profesional",
+  "short_name": "JHEP",
+  "description": "Edición y Organización Profesional de Archivos PDF",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfcfc",
+  "theme_color": "#dc2626",
+  "icons": [
+    {
+      "src": "/jhep_final_icon.ico",
+      "sizes": "64x64 32x32 24x24 16x16 256x256 512x512",
+      "type": "image/x-icon",
+      "purpose": "any"
+    },
+    {
+      "src": "/jhep_final_icon.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/jhep_final_icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/",
+      "accept": {
+        "application/pdf": [".pdf"]
+      },
+      "icons": [
+        {
+          "src": "/jhep_final_icon.png",
+          "sizes": "512x512",
+          "type": "image/png"
+        }
+      ],
+      "launch_type": "single-client"
+    }
+  ]
+}
