@@ -836,32 +836,6 @@ export default function Home() {
                        </div>
                        <button onClick={clearSelection} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white transition-all uppercase tracking-widest">Limpiar Selección</button>
                     </div>
-
-                    <div className="flex-1" />
-
-                    <div className="flex items-center gap-3">
-                       <button onClick={() => setShowBandejaModal(true)} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-white text-slate-900 border border-slate-200 hover:bg-slate-50 transition-all uppercase tracking-widest flex items-center gap-2 shadow-sm">
-                         <Layers size={14} /> Ver Bandeja ({savedDocuments.length})
-                       </button>
-                       <button 
-                         onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setSaveDocName(""); setShowSaveDoc(true); }} 
-                         className="h-12 px-6 rounded-[18px] text-[9px] font-black bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all uppercase tracking-widest flex items-center gap-2"
-                       >
-                         <Archive size={16} /> Añadir a Bandeja
-                       </button>
-                       
-                       <div className="w-px h-8 bg-slate-100 mx-2" />
-                       
-                       <div className="flex items-center gap-3 bg-white px-5 h-12 rounded-[18px] shadow-sm border border-slate-200 group/stats">
-                          <div className="w-8 h-8 bg-slate-900 rounded-[10px] flex items-center justify-center text-white text-[11px] font-black shadow-lg">
-                             {virtualPages.length}
-                          </div>
-                          <div className="flex flex-col">
-                             <span className="text-[10px] font-black text-slate-900 uppercase tracking-tighter leading-none text-left">Hojas</span>
-                          </div>
-                       </div>
-                       <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse shadow-sm" />
-                    </div>
                  </div>
 
                  {/* HEADER MOBILE (NUEVO) */}
@@ -1023,41 +997,42 @@ export default function Home() {
         {showBandejaModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[500] bg-slate-950/80 backdrop-blur-2xl flex items-center justify-center p-4 md:p-10">
             <motion.div initial={{ scale: 0.95, y: 20 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[40px] w-full max-w-6xl h-full max-h-[90vh] shadow-4xl flex flex-col overflow-hidden relative" onClick={e => e.stopPropagation()}>
-              <div className="p-4 md:p-8 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between bg-white/50 backdrop-blur-md gap-4">
-                <div className="flex items-center gap-3 md:gap-5 w-full md:w-auto">
-                  <div className="w-10 h-10 md:w-14 md:h-14 bg-violet-600 rounded-lg md:rounded-[22px] flex items-center justify-center text-white shadow-xl shadow-violet-200"><Layers className="w-6 h-6 md:w-7 md:h-7" strokeWidth={3} /></div>
+              <div className="p-4 md:p-5 border-b border-slate-100 flex flex-col md:flex-row items-start md:items-center justify-between bg-white/50 backdrop-blur-md gap-3">
+                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto">
+                  <div className="w-8 h-8 md:w-11 md:h-11 bg-violet-600 rounded-lg md:rounded-xl flex items-center justify-center text-white shadow-lg shadow-violet-200 shrink-0"><Layers className="w-4 h-4 md:w-5 md:h-5" strokeWidth={3} /></div>
                   <div className="flex flex-col">
-                    <h2 className="text-lg md:text-3xl font-black text-slate-900 tracking-tighter leading-tight uppercase">Bandeja Virtual</h2>
-                    <p className="text-[7px] md:text-[10px] font-black text-violet-500 uppercase tracking-[0.4em] mt-0.5 md:mt-1">Gestión de Documentos</p>
+                    <h2 className="text-sm md:text-xl font-black text-slate-900 tracking-tighter leading-tight uppercase">Bandeja Virtual</h2>
+                    <p className="hidden md:block text-[8px] font-black text-violet-500 uppercase tracking-[0.3em] mt-0.5">Gestión de Documentos</p>
                   </div>
-                  <div className="flex-1" />
+                  <div className="flex-1 md:hidden" />
                   <button onClick={() => setShowBandejaModal(false)} className="md:hidden w-10 h-10 flex items-center justify-center bg-slate-50 text-slate-400 rounded-lg border border-slate-100"><X size={20} strokeWidth={3} /></button>
                 </div>
 
-                <div className="flex items-center gap-2 md:gap-3 w-full md:w-auto overflow-x-auto no-scrollbar pb-1">
-                  {/* Botones Desktop / Mobile Condicionales dentro de la misma linea o duplicados */}
-                  <button onClick={() => { const allIds = savedDocuments.map(d => d.id); allIds.forEach(id => { if(!selectedDocIds.includes(id)) toggleDocSelection(id); }); }} className="whitespace-nowrap px-3 md:px-5 py-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-slate-900">Marcar Todos</button>
-                  <button onClick={clearDocSelection} className="whitespace-nowrap px-3 md:px-5 py-2 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-700">Desmarcar</button>
+                <div className="flex items-center gap-1.5 md:gap-2 w-full md:w-auto overflow-hidden">
+                  <div className="flex items-center bg-slate-50 p-1 rounded-xl border border-slate-100 mr-1">
+                    <button onClick={() => { const allIds = savedDocuments.map(d => d.id); allIds.forEach(id => { if(!selectedDocIds.includes(id)) toggleDocSelection(id); }); }} className="whitespace-nowrap px-2 md:px-3 py-1.5 text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-600 hover:bg-white hover:shadow-sm rounded-lg transition-all">Todos</button>
+                    <button onClick={clearDocSelection} className="whitespace-nowrap px-2 md:px-3 py-1.5 text-[7px] md:text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600">Nada</button>
+                  </div>
                   
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => trayFileInputRef.current?.click()} className="whitespace-nowrap h-10 md:h-14 px-4 md:px-7 rounded-lg md:rounded-[22px] text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-emerald-600 text-white shadow-xl">
-                      <FileUp className="w-4 h-4 md:w-[18px] md:h-[18px]" strokeWidth={3} /> <span className="hidden sm:inline">Subir PDF</span><span className="sm:hidden">PDF</span>
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <button onClick={() => trayFileInputRef.current?.click()} className="whitespace-nowrap h-10 md:h-11 px-3 md:px-4 rounded-lg md:rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest flex items-center gap-2 bg-emerald-600 text-white shadow-md transition-all hover:scale-105 active:scale-95">
+                      <FileUp size={14} strokeWidth={3} /> <span className="hidden xl:inline">Subir PDF</span>
                     </button>
-                    <button onClick={handleSaveDocsIndividually} disabled={selectedDocIds.length === 0} className={cn("whitespace-nowrap h-10 md:h-14 px-4 md:px-7 rounded-lg md:rounded-[22px] text-[8px] md:text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl", selectedDocIds.length > 0 ? "bg-amber-600 text-white" : "bg-slate-100 text-slate-400 grayscale")}>
-                      <FolderPlus className="w-4 h-4 md:w-[18px] md:h-[18px]" strokeWidth={3} /> <span className="hidden sm:inline">Guardar ({selectedDocIds.length})</span><span className="sm:hidden">({selectedDocIds.length})</span>
+                    <button onClick={handleSaveDocsIndividually} disabled={selectedDocIds.length === 0} className={cn("whitespace-nowrap h-10 md:h-11 px-3 md:px-4 rounded-lg md:rounded-xl text-[8px] md:text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md", selectedDocIds.length > 0 ? "bg-amber-600 text-white hover:scale-105 active:scale-95" : "bg-slate-100 text-slate-400 grayscale")}>
+                      <FolderPlus size={14} strokeWidth={3} /> <span className="hidden xl:inline">Guardar</span><span className="xl:hidden">({selectedDocIds.length})</span>
                     </button>
                   </div>
 
-                  <div className="hidden md:flex items-center gap-3">
-                    <button onClick={handleExportZip} disabled={selectedDocIds.length === 0} className={cn("h-14 px-7 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 transition-all shadow-xl border-2", selectedDocIds.length > 0 ? "bg-white text-emerald-600 border-emerald-600 shadow-emerald-50 hover:bg-emerald-50" : "bg-slate-50 text-slate-300 grayscale cursor-not-allowed border-slate-100 shadow-none")}>
-                      <Download size={18} strokeWidth={3} /> ZIP ({selectedDocIds.length})
+                  <div className="hidden md:flex items-center gap-1.5 md:gap-2">
+                    <button onClick={handleExportZip} disabled={selectedDocIds.length === 0} className={cn("h-11 px-4 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-md border", selectedDocIds.length > 0 ? "bg-white text-emerald-600 border-emerald-600 hover:bg-emerald-50 hover:scale-105 active:scale-95" : "bg-slate-50 text-slate-300 grayscale cursor-not-allowed border-slate-100 shadow-none")}>
+                      <Download size={14} strokeWidth={3} /> <span className="hidden xl:inline">Exportar ZIP</span><span className="xl:hidden">ZIP</span>
                     </button>
-                    <div className="w-px h-10 bg-slate-100 mx-1" />
-                    <button onClick={() => { if(confirm("¿Estás seguro de vaciar toda la bandeja?")) { clearSavedDocuments(); toast.success("Bandeja vaciada"); } }} disabled={savedDocuments.length === 0} className="h-14 px-6 rounded-[22px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed border border-red-100">
-                      <Trash2 size={18} strokeWidth={3} /> Vaciar
+                    <div className="w-px h-6 bg-slate-200 mx-0.5" />
+                    <button onClick={() => { if(confirm("¿Estás seguro de vaciar toda la bandeja?")) { clearSavedDocuments(); toast.success("Bandeja vaciada"); } }} disabled={savedDocuments.length === 0} className="h-11 px-3 rounded-xl text-[9px] font-black uppercase tracking-widest flex items-center gap-2 bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed border border-red-100 hover:scale-105 active:scale-95">
+                      <Trash2 size={14} strokeWidth={3} /> <span className="hidden xl:inline">Vaciar</span>
                     </button>
-                    <button onClick={() => setShowBandejaModal(false)} className="w-14 h-14 flex items-center justify-center bg-slate-50 text-slate-400 hover:bg-red-50 hover:text-red-500 rounded-[22px] transition-all border border-slate-100">
-                      <X size={24} strokeWidth={3} />
+                    <button onClick={() => setShowBandejaModal(false)} className="w-11 h-11 flex items-center justify-center bg-slate-900 text-white hover:bg-red-600 rounded-xl transition-all shadow-lg hover:rotate-90">
+                      <X size={18} strokeWidth={3} />
                     </button>
                   </div>
                 </div>
