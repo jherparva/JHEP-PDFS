@@ -15,11 +15,13 @@ interface SortablePageProps {
   pageNumber: number;
   rotation?: number;
   selected?: boolean;
+  selectionIndex?: number;
   onClick?: (e: any) => void;
   onView?: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, selected, onClick, onView }: SortablePageProps) => {
+export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, selected, selectionIndex = -1, onClick, onView, onContextMenu }: SortablePageProps) => {
   const {
     attributes,
     listeners,
@@ -41,10 +43,11 @@ export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, s
   return (
     <div ref={setNodeRef} style={style} {...attributes}
       onDoubleClick={(e) => { e.stopPropagation(); onView?.(); }}
-      className={cn("relative p-2 rounded-2xl group select-none", 
+      onContextMenu={onContextMenu}
+      className={cn("relative p-2 rounded-2xl group/card select-none", 
         selected ? "bg-red-50 ring-4 ring-primary shadow-2xl" : "bg-white hover:bg-slate-50")}>
       
-      <div className="relative cursor-pointer overflow-hidden rounded-xl shadow-lg border border-slate-100 bg-slate-50" onClick={onClick}>
+      <div className="relative cursor-pointer overflow-hidden rounded-xl shadow-lg border border-slate-100 bg-slate-50 transform transition-transform duration-300 group-hover/card:scale-[1.02]" onClick={onClick}>
         <PDFThumbnail 
           blob={editedBlob || blob} 
           pageNumber={editedBlob ? 1 : pageNumber} 
@@ -88,6 +91,11 @@ export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, s
          <span className={cn("text-[10px] font-black uppercase tracking-tight", selected ? "text-primary" : "text-slate-800")}>Hoja {pageNumber}</span>
          {selected && <div className="w-2.5 h-2.5 bg-primary rounded-full animate-pulse shadow-primary/50 shadow-md" />}
       </div>
+      {selectionIndex !== -1 && (
+         <div className="absolute -top-3 -right-3 w-9 h-9 bg-primary text-white text-[11px] font-black rounded-xl flex items-center justify-center shadow-xl border-3 border-white z-50 pointer-events-none transition-transform scale-110">
+            {selectionIndex + 1}
+         </div>
+      )}
     </div>
   );
 };

@@ -952,15 +952,8 @@ export default function Home() {
                                const f = files.find(x => x.id === pg.sourcePdfId); if (!f) return null;
                                const sIdx = selectionSequence.indexOf(pg.id);
                                return (
-                                 <div key={pg.id} className="relative group/card transform transition-all duration-300 hover:scale-[1.02]" onContextMenu={(e) => handlePageContextMenu(e, pg.id)}>
-                                    <SortablePage id={pg.id} blob={f.blob} editedBlob={pg.editedBlob} pageNumber={pg.pageNumber} rotation={pg.rotation} selected={selectedPageIds.includes(pg.id)} onView={() => handleOpenViewer(pg.id)}
-                                      onClick={(e: any) => togglePageSelection(pg.id, { multi: e.ctrlKey || e.metaKey, range: e.shiftKey, index: idx })} />
-                                    {sIdx !== -1 && (
-                                       <motion.div initial={{ scale: 0 }} animate={{ scale: 1.1 }} className="absolute -top-3 -right-3 w-9 h-9 bg-primary text-white text-[11px] font-black rounded-xl flex items-center justify-center shadow-xl border-3 border-white z-50">
-                                          {sIdx + 1}
-                                       </motion.div>
-                                    )}
-                                 </div>
+                                 <SortablePage key={pg.id} id={pg.id} blob={f.blob} editedBlob={pg.editedBlob} pageNumber={pg.pageNumber} rotation={pg.rotation} selected={selectedPageIds.includes(pg.id)} selectionIndex={sIdx} onView={() => handleOpenViewer(pg.id)}
+                                    onClick={(e: any) => togglePageSelection(pg.id, { multi: e.ctrlKey || e.metaKey, range: e.shiftKey, index: idx })} onContextMenu={(e) => handlePageContextMenu(e, pg.id)} />
                                );
                              })}
                           </div>
