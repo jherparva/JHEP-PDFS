@@ -30,7 +30,7 @@ export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, s
   } = useSortable({ id });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition,
     zIndex: isDragging ? 50 : 0,
   };
@@ -41,8 +41,8 @@ export const SortablePage = ({ id, blob, editedBlob, pageNumber, rotation = 0, s
   return (
     <div ref={setNodeRef} style={style} {...attributes}
       onDoubleClick={(e) => { e.stopPropagation(); onView?.(); }}
-      className={cn("relative p-2 rounded-2xl transition-all group select-none", 
-        selected ? "bg-red-50 ring-4 ring-primary shadow-2xl scale-[1.05]" : "bg-white hover:bg-slate-50")}>
+      className={cn("relative p-2 rounded-2xl group select-none", 
+        selected ? "bg-red-50 ring-4 ring-primary shadow-2xl" : "bg-white hover:bg-slate-50")}>
       
       <div className="relative cursor-pointer overflow-hidden rounded-xl shadow-lg border border-slate-100 bg-slate-50" onClick={onClick}>
         <PDFThumbnail 
