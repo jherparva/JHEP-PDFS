@@ -867,7 +867,10 @@ export default function Home() {
                             <button key={n} onClick={() => setGridColumns(n)} className={cn("px-4 py-2.5 rounded-[14px] text-[9px] font-black transition-all", gridColumns === n ? "bg-white text-slate-900 shadow-md scale-105" : "text-slate-400 hover:text-slate-600 font-bold")}>{n} COL</button>
                           ))}
                        </div>
-                       <button onClick={clearSelection} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white transition-all uppercase tracking-widest">Limpiar Selección</button>
+                       <div className="flex gap-1">
+                         <button onClick={selectAllPages} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-indigo-50 text-indigo-600 hover:bg-indigo-500 hover:text-white transition-all uppercase tracking-widest">Marcar Todo</button>
+                         <button onClick={clearSelection} className="h-12 px-5 rounded-[18px] text-[9px] font-black bg-amber-50 text-amber-600 hover:bg-amber-500 hover:text-white transition-all uppercase tracking-widest">Desmarcar</button>
+                       </div>
                     </div>
                  </div>
 
@@ -883,7 +886,10 @@ export default function Home() {
                        {[4, 5, 6].map(n => (
                          <button key={n} onClick={() => setGridColumns(n)} className={cn("px-2 py-1 rounded-md text-[7px] font-black shrink-0", gridColumns === n ? "bg-slate-900 text-white" : "text-slate-400")}>{n} C</button>
                        ))}
-                       <button onClick={clearSelection} className="px-2 py-1 rounded-md bg-amber-50 text-amber-600 text-[7px] font-black whitespace-nowrap">LIB.</button>
+                       <div className="flex gap-1 pl-1 border-l border-slate-100">
+                         <button onClick={selectAllPages} className="px-2 py-1 rounded-md bg-indigo-50 text-indigo-600 text-[7px] font-black whitespace-nowrap">TODAS</button>
+                         <button onClick={clearSelection} className="px-2 py-1 rounded-md bg-amber-50 text-amber-600 text-[7px] font-black whitespace-nowrap">NADA</button>
+                       </div>
                     </div>
                  </div>
 
