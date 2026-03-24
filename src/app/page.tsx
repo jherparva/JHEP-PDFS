@@ -166,7 +166,6 @@ export default function Home() {
         toast.error("📂 Selecciona las hojas que deseas enviar a la bandeja");
         return;
       }
-      setSaveDocName(""); 
       setShowSaveDoc(true);
     }
     else if (a === "view" || a === "edit") handleOpenViewer();
@@ -437,15 +436,33 @@ export default function Home() {
       for (const doc of docsToZip) {
         const pdfDoc = await PDFDocument.create();
         const fn = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const totalPages = doc.pageIds.length;
-        for (let i = 0; i < doc.pageIds.length; i++) {
-          const vp = virtualPages.find(p => p.id === doc.pageIds[i]);
-          if (!vp) continue;
-          const f = files.find(x => x.id === vp.sourcePdfId);
-          if (!f) continue;
-          const src = await PDFDocument.load(await (vp.editedBlob || f.blob).arrayBuffer());
-          const [cp] = await pdfDoc.copyPages(src, [vp.editedBlob ? 0 : vp.pageNumber - 1]);
-          if (vp.rotation % 360 !== 0) cp.setRotation(degrees(vp.rotation % 360));
+        // Resolve pages: use virtualPages first, fall back to file blob for tray-only docs
+        const resolvedPages: { blob: Blob; pageNumber: number; rotation: number }[] = [];
+        for (const pid of doc.pageIds) {
+          const vp = virtualPages.find(p => p.id === pid);
+          if (vp) {
+            const f = files.find(x => x.id === vp.sourcePdfId);
+            if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
+          } else {
+            // Page was removed from workspace; try to recover from file blob by sourcePdfId embedded in id
+            const sourcePdfId = pid.split('-').slice(0, 2).join('-');
+            const f = files.find(x => x.id === sourcePdfId) || files.find(x => pid.startsWith(x.id));
+            if (f) {
+              // Parse page number from id pattern: `${pdfId}-${pageNum}-${rand}`
+              const parts = pid.replace(sourcePdfId + '-', '').split('-');
+              const pageNum = parseInt(parts[0], 10);
+              if (!isNaN(pageNum)) resolvedPages.push({ blob: f.blob, pageNumber: pageNum - 1, rotation: 0 });
+            }
+          }
+        }
+        if (resolvedPages.length === 0) continue;
+        const totalPages = resolvedPages.length;
+        for (let i = 0; i < resolvedPages.length; i++) {
+          const { blob, pageNumber, rotation } = resolvedPages[i];
+          const src = await PDFDocument.load(await blob.arrayBuffer());
+          const safePageNum = Math.min(pageNumber, src.getPageCount() - 1);
+          const [cp] = await pdfDoc.copyPages(src, [safePageNum]);
+          if (rotation % 360 !== 0) cp.setRotation(degrees(rotation % 360));
           pdfDoc.addPage(cp);
           if (isFoliating) {
             const { width } = cp.getSize();
@@ -517,15 +534,32 @@ export default function Home() {
       for (const doc of docsToSave) {
         const pdfDoc = await PDFDocument.create();
         const fn = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        const totalPages = doc.pageIds.length;
-        for (let i = 0; i < doc.pageIds.length; i++) {
-          const vp = virtualPages.find(p => p.id === doc.pageIds[i]);
-          if (!vp) continue;
-          const f = files.find(x => x.id === vp.sourcePdfId);
-          if (!f) continue;
-          const src = await PDFDocument.load(await (vp.editedBlob || f.blob).arrayBuffer());
-          const [cp] = await pdfDoc.copyPages(src, [vp.editedBlob ? 0 : vp.pageNumber - 1]);
-          if (vp.rotation % 360 !== 0) cp.setRotation(degrees(vp.rotation % 360));
+        // Resolve pages: use virtualPages first, fall back to file blob for tray-only docs
+        const resolvedPages: { blob: Blob; pageNumber: number; rotation: number }[] = [];
+        for (const pid of doc.pageIds) {
+          const vp = virtualPages.find(p => p.id === pid);
+          if (vp) {
+            const f = files.find(x => x.id === vp.sourcePdfId);
+            if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
+          } else {
+            // Page was removed from workspace; try to recover from file blob by sourcePdfId embedded in id
+            const sourcePdfId = pid.split('-').slice(0, 2).join('-');
+            const f = files.find(x => x.id === sourcePdfId) || files.find(x => pid.startsWith(x.id));
+            if (f) {
+              const parts = pid.replace(sourcePdfId + '-', '').split('-');
+              const pageNum = parseInt(parts[0], 10);
+              if (!isNaN(pageNum)) resolvedPages.push({ blob: f.blob, pageNumber: pageNum - 1, rotation: 0 });
+            }
+          }
+        }
+        if (resolvedPages.length === 0) continue;
+        const totalPages = resolvedPages.length;
+        for (let i = 0; i < resolvedPages.length; i++) {
+          const { blob: pageBlob, pageNumber, rotation } = resolvedPages[i];
+          const src = await PDFDocument.load(await pageBlob.arrayBuffer());
+          const safePageNum = Math.min(pageNumber, src.getPageCount() - 1);
+          const [cp] = await pdfDoc.copyPages(src, [safePageNum]);
+          if (rotation % 360 !== 0) cp.setRotation(degrees(rotation % 360));
           pdfDoc.addPage(cp);
           if (isFoliating) {
             const { width } = cp.getSize();
@@ -861,7 +895,7 @@ export default function Home() {
                          <Layers size={14} /> Ver Bandeja ({savedDocuments.length})
                        </button>
                        <button 
-                         onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setSaveDocName(""); setShowSaveDoc(true); }} 
+                         onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Selecciona hojas"); return; } setShowSaveDoc(true); }} 
                          className="h-12 px-6 rounded-[18px] text-[9px] font-black bg-violet-600 text-white hover:bg-violet-700 shadow-lg shadow-violet-100 transition-all uppercase tracking-widest flex items-center gap-2"
                        >
                          <Archive size={16} /> Añadir a Bandeja
@@ -873,7 +907,7 @@ export default function Home() {
                        <button onClick={() => setShowBandejaModal(true)} className="h-9 px-2.5 rounded-lg text-[7px] font-black bg-white text-slate-900 border border-slate-200 flex items-center gap-1 shadow-sm">
                          <Layers size={12} /> ({savedDocuments.length})
                        </button>
-                       <button onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Hojas?"); return; } setSaveDocName(""); setShowSaveDoc(true); }} className="h-9 px-2.5 rounded-lg text-[7px] font-black bg-violet-600 text-white flex items-center gap-1 shadow-sm">
+                       <button onClick={() => { const ids = selectionSequence.length || selectedPageIds.length; if(!ids) { toast.error("Hojas?"); return; } setShowSaveDoc(true); }} className="h-9 px-2.5 rounded-lg text-[7px] font-black bg-violet-600 text-white flex items-center gap-1 shadow-sm">
                          <Archive size={12} />+
                        </button>
                     </div>
@@ -979,14 +1013,14 @@ export default function Home() {
           />
         )}
         {showSaveDoc && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-slate-950/60 backdrop-blur-lg flex items-center justify-center p-6" onClick={() => setShowSaveDoc(false)}>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[400] bg-slate-950/60 flex items-center justify-center p-6" onMouseDown={(e: any) => { if (e.target === e.currentTarget) setShowSaveDoc(false); }}>
             <motion.div initial={{ scale: 0.9, y: 30 }} animate={{ scale: 1, y: 0 }} className="bg-white rounded-[32px] w-[380px] p-10 shadow-2xl flex flex-col gap-6 relative" onClick={e => e.stopPropagation()}>
               <div className="h-2 absolute top-0 left-0 right-0 bg-gradient-to-r from-violet-500 to-indigo-600 rounded-t-[32px]" />
               <div className="flex flex-col gap-1 mt-2">
                 <h3 className="text-2xl font-black text-slate-900 tracking-tighter uppercase">Guardar Selección</h3>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{(selectionSequence.length > 0 ? selectionSequence : selectedPageIds).length} hoja(s) seleccionadas</p>
               </div>
-              <input autoFocus type="text" placeholder="Nombre del documento..." value={saveDocName} onChange={e => setSaveDocName(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && saveDocName.trim()) { const ids = selectionSequence.length > 0 ? selectionSequence : selectedPageIds; saveSelectionAsDocument(saveDocName.trim(), ids); toast.success(`"${saveDocName.trim()}" guardado`); setShowSaveDoc(false); } }} className="w-full h-14 px-5 bg-slate-50 border-2 border-slate-100 focus:border-violet-400 rounded-2xl text-sm font-black text-slate-900 outline-none transition-all tracking-tight" />
+              <input autoFocus type="text" placeholder="Nombre del documento..." value={saveDocName} onChange={e => setSaveDocName(e.target.value)} onKeyDown={e => { e.stopPropagation(); if (e.key === "Enter" && saveDocName.trim()) { const ids = selectionSequence.length > 0 ? selectionSequence : selectedPageIds; saveSelectionAsDocument(saveDocName.trim(), ids); toast.success(`"${saveDocName.trim()}" guardado`); setShowSaveDoc(false); } }} className="w-full h-14 px-5 bg-slate-50 border-2 border-slate-100 focus:border-violet-400 rounded-2xl text-sm font-black text-slate-900 outline-none transition-all tracking-tight" />
               <div className="flex gap-3">
                 <button onClick={() => setShowSaveDoc(false)} className="flex-1 h-12 bg-slate-100 text-slate-500 font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-slate-200 transition-all">Cancelar</button>
                 <button onClick={() => { if (!saveDocName.trim()) { toast.error("Escribe un nombre"); return; } const ids = selectionSequence.length > 0 ? selectionSequence : selectedPageIds; saveSelectionAsDocument(saveDocName.trim(), ids); toast.success(`"${saveDocName.trim()}" guardado`); setShowSaveDoc(false); }} className="flex-1 h-12 bg-violet-600 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest hover:bg-violet-500 active:scale-95 transition-all shadow-lg shadow-violet-200">Guardar</button>
