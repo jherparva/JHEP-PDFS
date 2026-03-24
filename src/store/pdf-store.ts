@@ -13,6 +13,7 @@ export interface SavedDocument {
   id: string;
   name: string;
   pageIds: string[];     // IDs de virtualPages en el orden guardado
+  pages?: PDFPage[];     // Snapshot virtual para cuando se limpia la mesa
   createdAt: number;
 }
 
@@ -197,7 +198,13 @@ export const usePDFStore = create<PDFState>()((set, get) => ({
   saveSelectionAsDocument: (name, pageIds) => set((state) => ({
     savedDocuments: [
       ...state.savedDocuments,
-      { id: Math.random().toString(36).substring(7), name, pageIds, createdAt: Date.now() }
+      { 
+        id: Math.random().toString(36).substring(7), 
+        name, 
+        pageIds, 
+        pages: pageIds.map(id => state.virtualPages.find(p => p.id === id)).filter(Boolean) as PDFPage[],
+        createdAt: Date.now() 
+      }
     ]
   })),
 
@@ -239,6 +246,7 @@ export const usePDFStore = create<PDFState>()((set, get) => ({
           id: Math.random().toString(36).substring(7), 
           name: name.replace(/\.(pdf|png|jpg|jpeg)$/i, ""), 
           pageIds: newPages.map(p => p.id), 
+          pages: newPages,
           createdAt: Date.now() 
         }
       ]

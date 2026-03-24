@@ -436,22 +436,21 @@ export default function Home() {
       for (const doc of docsToZip) {
         const pdfDoc = await PDFDocument.create();
         const fn = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        // Resolve pages: use virtualPages first, fall back to file blob for tray-only docs
+        // Resolve pages: use the doc.pages snapshot, or fall back to virtualPages for older saves
         const resolvedPages: { blob: Blob; pageNumber: number; rotation: number }[] = [];
-        for (const pid of doc.pageIds) {
-          const vp = virtualPages.find(p => p.id === pid);
-          if (vp) {
-            const f = files.find(x => x.id === vp.sourcePdfId);
-            if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
-          } else {
-            // Page was removed from workspace; try to recover from file blob by sourcePdfId embedded in id
-            const sourcePdfId = pid.split('-').slice(0, 2).join('-');
-            const f = files.find(x => x.id === sourcePdfId) || files.find(x => pid.startsWith(x.id));
-            if (f) {
-              // Parse page number from id pattern: `${pdfId}-${pageNum}-${rand}`
-              const parts = pid.replace(sourcePdfId + '-', '').split('-');
+        const pagesToProcess = doc.pages && doc.pages.length > 0 ? doc.pages : doc.pageIds.map(id => virtualPages.find(p => p.id === id)).filter(Boolean) as typeof virtualPages;
+        
+        for (const vp of pagesToProcess) {
+          const f = files.find(x => x.id === vp.sourcePdfId);
+          if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
+          else {
+            // Very old fallback when file might be partially matched
+            const sourcePdfId = vp.id.split('-').slice(0, 2).join('-');
+            const fObj = files.find(x => x.id === sourcePdfId) || files.find(x => vp.id.startsWith(x.id));
+            if (fObj) {
+              const parts = vp.id.replace(sourcePdfId + '-', '').split('-');
               const pageNum = parseInt(parts[0], 10);
-              if (!isNaN(pageNum)) resolvedPages.push({ blob: f.blob, pageNumber: pageNum - 1, rotation: 0 });
+              if (!isNaN(pageNum)) resolvedPages.push({ blob: fObj.blob, pageNumber: pageNum - 1, rotation: 0 });
             }
           }
         }
@@ -534,21 +533,21 @@ export default function Home() {
       for (const doc of docsToSave) {
         const pdfDoc = await PDFDocument.create();
         const fn = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-        // Resolve pages: use virtualPages first, fall back to file blob for tray-only docs
+        // Resolve pages: use the doc.pages snapshot, or fall back to virtualPages for older saves
         const resolvedPages: { blob: Blob; pageNumber: number; rotation: number }[] = [];
-        for (const pid of doc.pageIds) {
-          const vp = virtualPages.find(p => p.id === pid);
-          if (vp) {
-            const f = files.find(x => x.id === vp.sourcePdfId);
-            if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
-          } else {
-            // Page was removed from workspace; try to recover from file blob by sourcePdfId embedded in id
-            const sourcePdfId = pid.split('-').slice(0, 2).join('-');
-            const f = files.find(x => x.id === sourcePdfId) || files.find(x => pid.startsWith(x.id));
-            if (f) {
-              const parts = pid.replace(sourcePdfId + '-', '').split('-');
+        const pagesToProcess = doc.pages && doc.pages.length > 0 ? doc.pages : doc.pageIds.map(id => virtualPages.find(p => p.id === id)).filter(Boolean) as typeof virtualPages;
+        
+        for (const vp of pagesToProcess) {
+          const f = files.find(x => x.id === vp.sourcePdfId);
+          if (f) resolvedPages.push({ blob: vp.editedBlob || f.blob, pageNumber: vp.editedBlob ? 0 : vp.pageNumber - 1, rotation: vp.rotation });
+          else {
+            // Very old fallback when file might be partially matched
+            const sourcePdfId = vp.id.split('-').slice(0, 2).join('-');
+            const fObj = files.find(x => x.id === sourcePdfId) || files.find(x => vp.id.startsWith(x.id));
+            if (fObj) {
+              const parts = vp.id.replace(sourcePdfId + '-', '').split('-');
               const pageNum = parseInt(parts[0], 10);
-              if (!isNaN(pageNum)) resolvedPages.push({ blob: f.blob, pageNumber: pageNum - 1, rotation: 0 });
+              if (!isNaN(pageNum)) resolvedPages.push({ blob: fObj.blob, pageNumber: pageNum - 1, rotation: 0 });
             }
           }
         }
@@ -608,7 +607,7 @@ export default function Home() {
   const handlePreviewDocument = async (docId: string) => {
     const doc = savedDocuments.find(d => d.id === docId);
     if (!doc) return;
-    const list = virtualPages.filter(p => doc.pageIds.includes(p.id));
+    const list = doc.pages && doc.pages.length > 0 ? doc.pages : virtualPages.filter(p => doc.pageIds.includes(p.id));
     if (!list.length) return;
     toast.promise(async () => {
       const pdfDoc = await PDFDocument.create();
