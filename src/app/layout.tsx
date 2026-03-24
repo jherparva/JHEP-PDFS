@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "JHEP | Editor Inteligente",
+  title: "JHEP Editor Profesional",
   description: "Organizador y Editor Profesional de PDFs con tecnología JHEP.",
   manifest: "/manifest.json",
   icons: {
