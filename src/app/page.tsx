@@ -120,9 +120,9 @@ export default function Home() {
       // Ignorar cuando hay un input activo
       if ((e.target as HTMLElement).tagName === "INPUT") return;
       if ((e.ctrlKey || e.metaKey) && e.key === "z") { e.preventDefault(); undoAction(); toast.info("↩ Acción deshecha"); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === "a") { e.preventDefault(); selectAllPages(); toast.info("Todas las hojas seleccionadas"); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === "s") { e.preventDefault(); handleSave(selectedPageIds.length > 0); }
-      else if ((e.ctrlKey || e.metaKey) && e.key === "p") { e.preventDefault(); handlePrint(); }
+      else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "a" || e.key.toLowerCase() === "e")) { e.preventDefault(); selectAllPages(); toast.info("Todas las hojas seleccionadas"); }
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") { e.preventDefault(); handleSave(false); }
+      else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "p") { e.preventDefault(); handlePrint(); }
       else if (e.key === "r" || e.key === "R") { e.preventDefault(); if (selectedPageIds.length) { rotateSelected(90); toast.success("Rotadas 90°"); } }
       else if (e.key === "v" || e.key === "V") { e.preventDefault(); if (selectedPageIds.length) { handleOpenViewer(selectedPageIds[0]); } }
       else if (e.key === "Delete" || e.key === "Backspace") { if (selectedPageIds.length) { deleteSelectedPages(); toast.success("Hojas eliminadas"); } }
@@ -159,7 +159,8 @@ export default function Home() {
       toast.success("Mesa de Trabajo Limpiada");
     }
     else if (a === "print") handlePrint();
-    else if (a === "save") handleSave(selectedPageIds.length > 0);
+    else if (a === "save") handleSave(false);
+    else if (a === "saveSelection") handleSave(true);
     else if (a === "saveAsDocument") {
       const idsCount = selectionSequence.length || selectedPageIds.length;
       if (!idsCount) {
@@ -188,7 +189,7 @@ export default function Home() {
   const handleSave = async (selOnly: boolean, annos?: any[]) => {
     const pgs = selOnly ? virtualPages.filter(p => selectedPageIds.includes(p.id)) : virtualPages;
     if (!pgs.length) {
-       toast.error("⚠️ No hay hojas para guardar. Añade PDFs a la mesa.");
+       toast.error(selOnly ? "⚠️ No has seleccionado ninguna hoja para guardar." : "⚠️ No hay hojas para guardar. Añade PDFs a la mesa.");
        return;
     }
 
@@ -635,7 +636,7 @@ export default function Home() {
       { label: single ? "Duplicar Hoja" : `Duplicar ${count} Hojas`, icon: <Copy size={14} strokeWidth={3} />, onClick: () => { if(single && ctxMenu) duplicatePage(ctxMenu.pageId); else duplicateSelectedPages(); toast.success("Duplicadas"); }, dividerAfter: true },
       { label: "Desmarcar Todo", icon: <X size={14} strokeWidth={3} />, onClick: () => clearSelection(), disabled: count === 0 },
       { label: "Convertir a Imagen...", icon: <Layers size={14} strokeWidth={3} />, onClick: () => setShowImageFormatModal(true), disabled: count === 0, dividerAfter: true },
-      { label: "Guardar Selección (PDF)", icon: <Download size={14} strokeWidth={3} />, onClick: () => handleAction("save"), disabled: count === 0 },
+      { label: "Guardar Selección (PDF)", icon: <Download size={14} strokeWidth={3} />, onClick: () => handleAction("saveSelection"), disabled: count === 0 },
       { label: "Imprimir Selección", icon: <Printer size={14} strokeWidth={3} />, onClick: () => handlePrint(), disabled: count === 0, dividerAfter: true },
       { label: single ? "Eliminar Hoja" : `Eliminar ${count} Hojas`, icon: <Trash2 size={14} strokeWidth={3} />, onClick: () => { deleteSelectedPages(); toast.success("Eliminadas"); }, danger: true, disabled: count === 0 },
     ];
@@ -650,7 +651,23 @@ export default function Home() {
 
   return (
     <main className="flex flex-col absolute inset-0 bg-slate-50 overflow-hidden font-sans">
-      <Toaster position="bottom-right" richColors closeButton />
+      <Toaster 
+        position="top-center" 
+        richColors 
+        closeButton 
+        visibleToasts={6}
+        expand={true}
+        toastOptions={{
+          style: {
+            marginTop: '20px',
+            borderRadius: '16px',
+            border: '1px solid rgba(226, 232, 240, 0.8)',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            backdropFilter: 'blur(8px)',
+          },
+          className: "font-sans font-bold uppercase tracking-tight text-[12px]",
+        }}
+      />
       <div className="flex flex-col h-full overflow-hidden bg-slate-50 relative z-0">
         <Ribbon 
            onAction={handleAction} 

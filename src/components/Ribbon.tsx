@@ -33,6 +33,7 @@ const actionGroups = [
       { id: "view", label: "Vista", icon: Eye, color: "text-indigo-600", bg: "bg-indigo-50" },
       { id: "print", label: "Imprimir", icon: Printer, color: "text-slate-600", bg: "bg-slate-50" },
       { id: "help", label: "Manual", icon: BookOpen, color: "text-slate-500", bg: "bg-slate-50" },
+      { id: "saveSelection", label: "Solo Marcados", icon: Download, color: "text-emerald-600", bg: "bg-emerald-50" },
     ]
   },
 ];
