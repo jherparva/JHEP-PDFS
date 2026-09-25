@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Search, Download, Layers, CheckCircle2, FileSearch, Trash2, ArrowRight, Loader2, Filter } from "lucide-react";
+import { X, Search, Download, Layers, CheckCircle2, FileSearch, Trash2, ArrowRight, Loader2, Filter, ScanText, Eye } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { PDFPage, PDFFile, usePDFStore } from "@/store/pdf-store";
-import { getPDFJSDocument, getPDFLibDocument } from "@/lib/pdf-cache";
+import { getPDFJSDocument, getPDFLibDocument, renderPageToDataUrl } from "@/lib/pdf-cache";
 import { PDFThumbnail } from "./PDFThumbnail";
 import { PDFDocument } from "pdf-lib";
 import { saveAs } from "file-saver";
@@ -17,6 +17,7 @@ interface SearchMatch {
   pageIndex: number; // 0-indexed page in original pdf
   snippet: string;
   matchedText: string;
+  isOcr?: boolean;
 }
 
 interface SearchNumberModalProps {
@@ -28,8 +29,10 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
   const { virtualPages, files, togglePageSelection, saveSelectionAsDocument, deletePage } = usePDFStore();
 
   const [query, setQuery] = useState("");
+  const [enableOCR, setEnableOCR] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [statusMsg, setStatusMsg] = useState("");
   const [matches, setMatches] = useState<SearchMatch[]>([]);
   const [selectedMatchIds, setSelectedMatchIds] = useState<string[]>([]);
   const [hasSearched, setHasSearched] = useState(false);
@@ -49,19 +52,33 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
 
     setIsSearching(true);
     setProgress(0);
+    setStatusMsg("Buscando en texto de PDFs...");
     setMatches([]);
     setHasSearched(true);
 
     const found: SearchMatch[] = [];
     const totalPages = virtualPages.length;
+    let tesseractWorker: any = null;
 
     try {
+      if (enableOCR) {
+        setStatusMsg("Iniciando motor de reconocimiento óptico (OCR)...");
+        try {
+          const { createWorker } = await import("tesseract.js");
+          tesseractWorker = await createWorker("spa");
+        } catch (workerErr) {
+          console.error("No se pudo iniciar Tesseract Worker:", workerErr);
+        }
+      }
+
       for (let i = 0; i < totalPages; i++) {
         const vp = virtualPages[i];
         const file = files.find((f) => f.id === vp.sourcePdfId);
         if (!file) continue;
 
-        setProgress(Math.round(((i + 1) / totalPages) * 100));
+        const currentPct = Math.round(((i + 1) / totalPages) * 100);
+        setProgress(currentPct);
+        setStatusMsg(`Escaneando página ${i + 1} de ${totalPages}...`);
 
         try {
           const pdfjsDoc = await getPDFJSDocument(vp.editedBlob || file.blob);
@@ -69,12 +86,26 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
           const page = await pdfjsDoc.getPage(targetPageNum);
           const textContent = await page.getTextContent();
           
-          // Combine all text items into one string
-          const pageText = textContent.items
+          let pageText = textContent.items
             .map((item: any) => item.str || "")
             .join(" ");
 
-          // Case-insensitive regex or index check
+          let matchedByOcr = false;
+
+          // If text content is empty/very short AND OCR worker is active, run Tesseract OCR!
+          if (tesseractWorker && (enableOCR || pageText.trim().length < 15)) {
+            setStatusMsg(`Aplicando OCR visual en pág. ${i + 1}...`);
+            const imgDataUrl = await renderPageToDataUrl(vp.editedBlob || file.blob, targetPageNum, vp.rotation, 1.5);
+            if (imgDataUrl) {
+              const res = await tesseractWorker.recognize(imgDataUrl);
+              const ocrText = res?.data?.text || "";
+              if (ocrText.trim()) {
+                pageText += " " + ocrText;
+                matchedByOcr = true;
+              }
+            }
+          }
+
           const lowerText = pageText.toLowerCase();
           const lowerQuery = cleanQuery.toLowerCase();
 
@@ -90,10 +121,11 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
               pageIndex: targetPageNum - 1,
               snippet,
               matchedText: cleanQuery,
+              isOcr: matchedByOcr,
             });
           }
         } catch (pageErr) {
-          console.error(`Error reading page ${vp.pageNumber} of ${file.name}:`, pageErr);
+          console.error(`Error leyendo página ${vp.pageNumber} de ${file.name}:`, pageErr);
         }
       }
 
@@ -108,6 +140,11 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
       console.error("Search error:", err);
       toast.error("Error al buscar en el documento");
     } finally {
+      if (tesseractWorker) {
+        try {
+          await tesseractWorker.terminate();
+        } catch (e) {}
+      }
       setIsSearching(false);
     }
   };
@@ -126,14 +163,12 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
     setSelectedMatchIds([]);
   };
 
-  // Action 1: Select in Mesa de Trabajo
   const handleMarkInWorkspace = () => {
     if (selectedMatchIds.length === 0) {
       toast.error("Selecciona al menos una coincidencia");
       return;
     }
 
-    // Toggle pages so only these are marked in workspace
     selectedMatchIds.forEach((id) => {
       togglePageSelection(id, { multi: true });
     });
@@ -141,7 +176,6 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
     onClose();
   };
 
-  // Action 2: Save Matching Pages to PDF
   const handleSaveMatchingPDF = async () => {
     if (selectedMatchIds.length === 0) {
       toast.error("Selecciona al menos una coincidencia para guardar");
@@ -195,7 +229,6 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
     }
   };
 
-  // Action 3: Add Matching Pages to Virtual Tray
   const handleSendToTray = () => {
     if (selectedMatchIds.length === 0) {
       toast.error("Selecciona al menos una coincidencia");
@@ -207,7 +240,6 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
     onClose();
   };
 
-  // Action 4: Delete Matching Pages from Mesa
   const handleDeleteMatches = () => {
     if (selectedMatchIds.length === 0) return;
     if (confirm(`¿Estás seguro de eliminar las ${selectedMatchIds.length} hojas coincidentes de la Mesa?`)) {
@@ -259,41 +291,59 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
               </button>
             </div>
 
-            {/* Input Form */}
-            <form onSubmit={handleSearch} className="flex gap-3">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <input
-                  type="text"
-                  autoFocus
-                  placeholder="Ingresa un número (ej. 103274, CAQ065, N° de Factura / Cedula / Folio)..."
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="w-full h-14 pl-12 pr-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 focus:bg-white rounded-2xl text-sm font-black text-slate-900 uppercase tracking-wide outline-none transition-all shadow-inner"
-                />
+            {/* Input Form & OCR Toggle */}
+            <form onSubmit={handleSearch} className="flex flex-col gap-3">
+              <div className="flex gap-3">
+                <div className="relative flex-1">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="Ingresa un número (ej. 103274, CAQ065, N° de Factura / Cedula / Folio)..."
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="w-full h-14 pl-12 pr-4 bg-slate-50 border-2 border-slate-200 focus:border-indigo-600 focus:bg-white rounded-2xl text-sm font-black text-slate-900 uppercase tracking-wide outline-none transition-all shadow-inner"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={isSearching || !query.trim()}
+                  className="h-14 px-8 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 disabled:grayscale"
+                >
+                  {isSearching ? (
+                    <>
+                      <Loader2 size={18} className="animate-spin" /> Buscando...
+                    </>
+                  ) : (
+                    <>
+                      <Search size={18} strokeWidth={3} /> Buscar Coincidencias
+                    </>
+                  )}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={isSearching || !query.trim()}
-                className="h-14 px-8 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-black rounded-2xl text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-indigo-200 transition-all disabled:opacity-50 disabled:grayscale"
-              >
-                {isSearching ? (
-                  <>
-                    <Loader2 size={18} className="animate-spin" /> Buscando...
-                  </>
-                ) : (
-                  <>
-                    <Search size={18} strokeWidth={3} /> Buscar Coincidencias
-                  </>
-                )}
-              </button>
+
+              {/* Checkbox OCR para escaneados */}
+              <div className="flex items-center gap-2 pt-1 pl-1">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none group">
+                  <input
+                    type="checkbox"
+                    checked={enableOCR}
+                    onChange={(e) => setEnableOCR(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-600 group-hover:text-indigo-600 transition-colors flex items-center gap-1.5">
+                    <ScanText size={14} className="text-indigo-500" />
+                    Activar OCR para PDFs escaneados (Fotocopias e imágenes sin texto digital)
+                  </span>
+                </label>
+              </div>
             </form>
 
             {/* Progress Bar */}
             {isSearching && (
               <div className="w-full flex flex-col gap-1.5 mt-2">
                 <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-widest text-indigo-600">
-                  <span>Escaneando páginas del PDF...</span>
+                  <span>{statusMsg}</span>
                   <span>{progress}%</span>
                 </div>
                 <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -326,8 +376,10 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
                 <p className="text-lg font-black text-slate-800 uppercase tracking-tight">
                   No se encontraron coincidencias para "{query}"
                 </p>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">
-                  Verifica si el número está escrito correctamente o si el PDF contiene texto seleccionable.
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1 max-w-md">
+                  {!enableOCR
+                    ? "Si el documento es una imagen o fotocopia escaneada, marca la casilla 'Activar OCR para PDFs escaneados' arriba y vuelve a buscar."
+                    : "Verifica si el número está escrito correctamente en el documento escaneado."}
                 </p>
               </div>
             ) : (
@@ -380,9 +432,16 @@ export function SearchNumberModal({ isOpen, onClose }: SearchNumberModalProps) {
                             />
                           </div>
                           <div className="flex flex-col min-w-0 flex-1">
-                            <span className="text-[10px] font-black text-slate-900 truncate uppercase">
-                              {m.file.name}
-                            </span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] font-black text-slate-900 truncate uppercase">
+                                {m.file.name}
+                              </span>
+                              {m.isOcr && (
+                                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 font-black text-[7px] rounded-md shrink-0 uppercase">
+                                  OCR
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[9px] font-black text-indigo-600 uppercase mt-0.5">
                               Hoja {m.page.pageNumber} de {m.file.pageCount}
                             </span>
